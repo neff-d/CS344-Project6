@@ -17,6 +17,7 @@ struct block {
 
 void print_data(void);
 void *myalloc(int);
+void myfree(void *);
 
 struct block *head;
 
@@ -28,11 +29,14 @@ int main(void){
 
     print_data();
 
-    p = myalloc(16);
+    p = myalloc(512);
     print_data();
 
     p = myalloc(16);
     printf("%p\n", p);
+
+    p = myalloc(124);
+    print_data();
 
 return 0;
 } // main
@@ -65,6 +69,9 @@ void print_data(void) {
 void *myalloc(int size){
 
     size = PADDED_SIZE(size);
+    printf("padded size: %d\n", size);
+    int padded_block_size = PADDED_SIZE(sizeof(struct block));
+    int required_space = size + padded_block_size + 16; 
 
     if(head == NULL){
         head = mmap(NULL, 1024, PROT_READ | PROT_WRITE,
@@ -73,22 +80,42 @@ void *myalloc(int size){
         head -> size = 1024 - PADDED_SIZE(sizeof(struct block));
         head -> in_use = 0;
     }
-
+    printf("size after 1st call to myalloc: %d\n", head -> size); //1008
     struct block *currNode = head;
 
     while(currNode != NULL){
 
-        if(currNode -> in_use == 0 && PADDED_SIZE(currNode -> size) >= size){
+        printf("padded size at start of loop: %d\n", size); //512
 
-            int padded_block_size = PADDED_SIZE(sizeof(struct block));
-                       
-            currNode -> in_use = 1;
-            currNode -> size = PADDED_SIZE(currNode -> size);     
-            currNode -> next = currNode + (padded_block_size + currNode -> size);          
+        if(currNode -> in_use == 0 && PADDED_SIZE(currNode -> size) >= size){
             
+            currNode -> in_use = 1;
+            //currNode -> size = PADDED_SIZE(currNode -> size) - size;
+            printf("currNode -> size: %d\n", currNode -> size);     
+            currNode -> next = currNode + (padded_block_size + currNode -> size);          
+            //currNode -> next -> size = head -> size - currNode -> size;  
+            return PTR_OFFSET(currNode, padded_block_size);
+        }
+        else if(PADDED_SIZE(currNode -> size) > size && currNode -> size < required_space && currNode -> in_use == 1){
+            currNode -> size = size - padded_block_size;
+            printf("Split_Space currNode -> size: %d\n", currNode -> size);
+            currNode -> in_use = 1;
+            size -= currNode -> size;
+            printf("size after calling 'size -= currNode -> size': %d\n", size);
+            currNode -> next = currNode + (padded_block_size + currNode -> size);
+            currNode -> next -> in_use = 0;
+          
             return PTR_OFFSET(currNode, padded_block_size);
         }
         currNode = currNode -> next;
     }            
     return NULL;
+}
+
+void myfree(void *p){
+
+    p = (struct block*) (p - PADDED_SIZE(sizeof(struct block)));
+    struct block *currNode = p;
+    currNode -> in_use = 0;
+
 }
