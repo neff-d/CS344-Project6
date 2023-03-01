@@ -29,7 +29,7 @@ int main(void){
 
     print_data();
 
-    p = myalloc(512);
+    p = myalloc(500);
     print_data();
 
     p = myalloc(16);
@@ -68,8 +68,10 @@ void print_data(void) {
 
 void *myalloc(int size){
 
+    printf("size before padding: %d\n", size);
     size = PADDED_SIZE(size);
     printf("padded size: %d\n", size);
+
     int padded_block_size = PADDED_SIZE(sizeof(struct block));
     int required_space = size + padded_block_size + 16; 
 
@@ -90,23 +92,35 @@ void *myalloc(int size){
         if(currNode -> in_use == 0 && PADDED_SIZE(currNode -> size) >= size){
             
             currNode -> in_use = 1;
-            //currNode -> size = PADDED_SIZE(currNode -> size) - size;
-            printf("currNode -> size: %d\n", currNode -> size);     
-            currNode -> next = currNode + (padded_block_size + currNode -> size);          
-            //currNode -> next -> size = head -> size - currNode -> size;  
+            currNode -> size = PADDED_SIZE(currNode -> size) - size;
+
+            size -= padded_block_size;
+            printf("currNode -> size: %d\n", currNode -> size);
+     
+            currNode -> next = currNode + (padded_block_size + currNode -> size);
+            printf("head -> size: %d\n", head -> size);
+          
+            currNode -> next -> size = head -> size - currNode -> size;
+            printf("size in if loop: %d\n", size);
+  
             return PTR_OFFSET(currNode, padded_block_size);
         }
-        else if(PADDED_SIZE(currNode -> size) > size && currNode -> size < required_space && currNode -> in_use == 1){
+            else if(PADDED_SIZE(currNode -> size) < size && currNode -> size < required_space && currNode -> in_use == 1){
+
             currNode -> size = size - padded_block_size;
             printf("Split_Space currNode -> size: %d\n", currNode -> size);
+
             currNode -> in_use = 1;
+
             size -= currNode -> size;
             printf("size after calling 'size -= currNode -> size': %d\n", size);
+
             currNode -> next = currNode + (padded_block_size + currNode -> size);
             currNode -> next -> in_use = 0;
           
             return PTR_OFFSET(currNode, padded_block_size);
         }
+        printf("exited IF block\n");
         currNode = currNode -> next;
     }            
     return NULL;
