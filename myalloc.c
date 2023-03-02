@@ -27,19 +27,16 @@ int main(void){
     head = NULL;
     void *p;
 
-    print_data();
+    myalloc(10);        print_data();
+    p = myalloc(20);    print_data();
+    myalloc(30);        print_data();
+    myfree(p);          print_data();
+    myalloc(40);        print_data();
+    myalloc(10);        print_data();
 
-    p = myalloc(500);
-    print_data();
-
-    p = myalloc(16);
-    printf("%p\n", p);
-
-    p = myalloc(124);
-    print_data();
 
 return 0;
-} // main
+}
 
 
 void print_data(void) {
@@ -68,9 +65,7 @@ void print_data(void) {
 
 void *myalloc(int size){
 
-    printf("size before padding: %d\n", size);
     size = PADDED_SIZE(size);
-    printf("padded size: %d\n", size);
 
     int padded_block_size = PADDED_SIZE(sizeof(struct block));
     int required_space = size + padded_block_size + 16; 
@@ -82,54 +77,55 @@ void *myalloc(int size){
         head -> size = 1024 - PADDED_SIZE(sizeof(struct block));
         head -> in_use = 0;
     }
-    printf("size after 1st call to myalloc: %d\n", head -> size); //1008
+
     struct block *currNode = head;
 
     while(currNode != NULL){
 
-        printf("padded size at start of loop: %d\n", size); //512
 
-        if(currNode -> in_use == 0 && PADDED_SIZE(currNode -> size) >= size){
+        if(currNode -> in_use == 0 && currNode -> size >= size){
+           
+            int old_currNode_size = currNode -> size;
             
-            currNode -> in_use = 1;
-            currNode -> size = PADDED_SIZE(currNode -> size) - size;
+            if(currNode -> size >= size && currNode -> size >= required_space){
 
+                currNode -> in_use = 1;
+                currNode -> size = size;
+                size -= padded_block_size;
+
+                currNode -> next = PTR_OFFSET(currNode, currNode -> size) + PADDED_SIZE(sizeof(struct block));
+
+                if(currNode -> next -> in_use == 1){
+                    return PTR_OFFSET(currNode, padded_block_size);
+                }
+
+                currNode -> next -> size = old_currNode_size - padded_block_size - currNode -> size;
+
+                return PTR_OFFSET(currNode, padded_block_size);
+            } 
+
+            currNode -> in_use = 1;
+            currNode -> size = size + padded_block_size;
             size -= padded_block_size;
-            printf("currNode -> size: %d\n", currNode -> size);
-     
-            currNode -> next = currNode + (padded_block_size + currNode -> size);
-            printf("head -> size: %d\n", head -> size);
-          
-            currNode -> next -> size = head -> size - currNode -> size;
-            printf("size in if loop: %d\n", size);
+                 
+            if(currNode -> next -> in_use == 1){
+                return PTR_OFFSET(currNode, padded_block_size);
+            }
+           
+            currNode -> next = PTR_OFFSET(currNode, currNode -> size) + PADDED_SIZE(sizeof(struct block));  
+            currNode -> next -> size = old_currNode_size - padded_block_size - currNode -> size;
   
             return PTR_OFFSET(currNode, padded_block_size);
         }
-            else if(PADDED_SIZE(currNode -> size) < size && currNode -> size < required_space && currNode -> in_use == 1){
-
-            currNode -> size = size - padded_block_size;
-            printf("Split_Space currNode -> size: %d\n", currNode -> size);
-
-            currNode -> in_use = 1;
-
-            size -= currNode -> size;
-            printf("size after calling 'size -= currNode -> size': %d\n", size);
-
-            currNode -> next = currNode + (padded_block_size + currNode -> size);
-            currNode -> next -> in_use = 0;
-          
-            return PTR_OFFSET(currNode, padded_block_size);
-        }
-        printf("exited IF block\n");
+      
         currNode = currNode -> next;
     }            
     return NULL;
-}
+} //while
 
 void myfree(void *p){
 
-    p = (struct block*) (p - PADDED_SIZE(sizeof(struct block)));
+    p = (struct block*) (PTR_OFFSET(p, - PADDED_SIZE(sizeof(struct block))));
     struct block *currNode = p;
     currNode -> in_use = 0;
-
 }
