@@ -25,14 +25,17 @@ struct block *head;
 int main(void){
 
     head = NULL;
-    void *p;
+    void *p, *q, *r, *s;
 
-    myalloc(10);        print_data();
-    p = myalloc(20);    print_data();
-    myalloc(30);        print_data();
+    p = myalloc(10);    print_data();
+    q = myalloc(20);    print_data();
+    r = myalloc(30);    print_data();
+    s = myalloc(40);    print_data();
+ 
+    myfree(q);          print_data();
     myfree(p);          print_data();
-    myalloc(40);        print_data();
-    myalloc(10);        print_data();
+    myfree(s);          print_data();
+    myfree(r);          print_data();
 
 
 return 0;
@@ -119,13 +122,29 @@ void *myalloc(int size){
         }
       
         currNode = currNode -> next;
-    }            
+    } //while            
     return NULL;
-} //while
+} 
 
 void myfree(void *p){
 
     p = (struct block*) (PTR_OFFSET(p, - PADDED_SIZE(sizeof(struct block))));
     struct block *currNode = p;
     currNode -> in_use = 0;
+
+    currNode = head;
+
+    while(currNode -> next != NULL){
+    
+        if(currNode -> in_use == 0 && currNode -> next -> in_use == 0){
+            
+            currNode -> size += currNode -> next -> size + PADDED_SIZE(sizeof(struct block));
+            currNode -> next = currNode -> next -> next;
+        
+        }
+        else{
+
+            currNode = currNode -> next;
+        }
+    }
 }
